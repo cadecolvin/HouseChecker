@@ -5,11 +5,12 @@ import requests
 
 class Zillow:
     @staticmethod
-    def get_coordinates():
+    def get_homes():
         """
-        Coordinates will be returned as a list of Tuples of lenght 2
-        Tuple[0] = latitude
-        Tuple[1] = longitude
+        Returns all homes for sale in the Fargo city limits.
+        Homes will have the following fields populated
+        coordinates,price,bed_no,bath_no
+        :return: All homes for sale in Fargo
         """
         url = 'https://www.zillow.com/search/GetResults.htm?spt=homes&status=110001&'\
                 'lt=111101&ht=100000&pr=,&mp=,&ba=0%2C&sf=,&lot=0%2C&yr=,&'\
@@ -21,18 +22,32 @@ class Zillow:
         response = requests.get(url)
         results = response.json()
         properties = results['map']['properties']
-        coords = []
+        homes = []
         for property in properties:
-            lat = str(property[1])
-            lon = str(property[2])
+            home = Home
 
-            # Format the lat and lon properly
-            lat = lat[:2] + '.' + lat[2:]
-            lon = lon[:3] + '.' + lon[3:]
+            try:
+                # Format the lat and lon properly
+                lat = str(property[1])
+                lon = str(property[2])
+                lat = lat[:2] + '.' + lat[2:]
+                lon = lon[:3] + '.' + lon[3:]
+                home.coordinates = (lat, lon)
 
-            coords.append((lat, lon))
+                price = property[3]
+                price = price.replace('K', '000')
+                price = price.replace('M', '000000')
+                price = price.replace('$', '')
+                home.price = int(price)
 
-        return coords
+                home.bed_no = property[8][1]
+                home.bath_no = property[8][2]
+
+                homes.append(home)
+            except:
+                print('Whoops! Had an issue')
+
+        return homes
 
 
 class Google:
@@ -43,7 +58,7 @@ class Google:
         latitude and longitute can be found
         :param lat: The latitude where the address is found
         :param lon: The longitute where the address is found
-        :return: A address formatted as follows: 123 14th St N, City, State, Zip, US
+        :return: An address formatted as follows: 123 4th St N, City, State Zip, US
         """
         google_api = f'http://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}'
 
@@ -52,7 +67,16 @@ class Google:
 
         try:
             full_address = result['results'][0]['formatted_address']
-            return full_address
+            house_no = re.search(r'\d+(?=\s)', full_address)
+            street = re.search(r'(?<=\s)\d.+?(?=,)', full_address)
+            city = re.search(r'(?<=,\s)\w+(?=,)', full_address)
+            state = re.search(r'(?<=,\s)\w\w(?=\s)', full_address)
+            zip = re.search(r'(?<=\w\w\s)\d{5}(?=,)', full_address)
+
+            # Format the street properly for Fargo searches
+            street = re.sub(r'(\d+)(?:st|th)', r'\1', street)
+
+            return Address(house_no, street, city, state, zip)
         except:
             print(f'{lat},{lon}')
 
@@ -106,3 +130,63 @@ class CassCounty:
         tax_amount = tax_amount.replace('$', '')
         tax_amount = tax_amount.replace(',', '')
         return int(float(tax_amount))
+
+
+class Home:
+    @property
+    def address(self):
+        return self._address
+    @address.setter
+    def address(self, value):
+        self._address = value
+
+    @property
+    def coordinates(self):
+        return self._coordinates
+    @coordinates.setter
+    def coordinates(self, value):
+        self._coordinates = value
+
+    @property
+    def parcel_no(self):
+        return self._parcel_no
+    @parcel_no.setter
+    def parcel_no(self, value):
+        self._parcel_no = value
+
+    @property
+    def price(self):
+        return self._price
+    @price.setter
+    def price(self, value):
+        self._price = value
+
+    @property
+    def bed_no(self):
+        return self._bed_no
+    @bed_no.setter
+    def bed_no(self, value):
+        self._bed_no = value
+
+    @property
+    def bath_no(self):
+        return self._bath_no
+    @bath_no.setter
+    def bath_no(self, value):
+        self._bath_no = value
+
+    @property
+    def sq_ft(self):
+        return self._sq_ft
+    @sq_ft.setter
+    def sq_ft(self, value):
+        self._sq_ft = value
+
+
+class Address:
+    def __init__(self, house_no, street, city, state, zip):
+        self.house_no = house_no
+        self.street = street
+        self.city = city
+        self.state = state
+        self.zip = zip
