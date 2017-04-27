@@ -1,6 +1,7 @@
 import json
 import re
 import requests
+import traceback
 
 
 class Zillow:
@@ -24,7 +25,7 @@ class Zillow:
         properties = results['map']['properties']
         homes = []
         for property in properties:
-            home = Home
+            home = Home()
 
             try:
                 # Format the lat and lon properly
@@ -45,7 +46,7 @@ class Zillow:
 
                 homes.append(home)
             except:
-                print('Whoops! Had an issue')
+                pass
 
         return homes
 
@@ -74,11 +75,11 @@ class Google:
             zip = re.search(r'(?<=\w\w\s)\d{5}(?=,)', full_address)
 
             # Format the street properly for Fargo searches
-            street = re.sub(r'(\d+)(?:st|th)', r'\1', street)
+            street = re.sub(r'(\d+)(?:nd|st|th)', r'\1', street[0])
 
-            return Address(house_no, street, city, state, zip)
+            return Address(house_no[0], street, city[0], state[0], zip[0])
         except:
-            print(f'{lat},{lon}')
+            pass
 
 
 class CityOfFargo:
@@ -90,7 +91,8 @@ class CityOfFargo:
         :return: The parcel number
         """
         city_url = 'http://www.fargoparcels.com/index.asp'
-        payload = {'address':address,'process':'true'}
+        formatted_address = f'{address.house_no} {address.street}'
+        payload = {'address':formatted_address,'process':'true'}
         response = requests.post(city_url, data=payload)
         page_text = response.content.decode('utf-8')
         parcel_no = re.search(r'\d{2}-\d{4}-\d{5}-\d{3}', page_text)
