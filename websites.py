@@ -84,33 +84,47 @@ class Google:
 
 class CityOfFargo:
     @staticmethod
-    def get_parcel_no(address):
+    def get_parcel_and_seg(address):
         """
         Returns a Fargo Parcel number based on an address
         :param address: The address to search. Must be formatted as 123 1 St S
-        :return: The parcel number
+        :return: A tuple of (parcel_no, seg_no)
         """
         city_url = 'http://www.fargoparcels.com/index.asp'
         formatted_address = f'{address.house_no} {address.street}'
         payload = {'address':formatted_address,'process':'true'}
         response = requests.post(city_url, data=payload)
         page_text = response.content.decode('utf-8')
-        parcel_no = re.search(r'\d{2}-\d{4}-\d{5}-\d{3}', page_text)
+        try:
+            match = re.search(r'\d{2}-\d{4}-\d{5}-\d{3}&seg=\d', page_text)[0]
+            values = match.split('&')
+            parcel_no = values[0]
+            seg = values[1].replace('seg=', '')
 
-        return parcel_no[0]
+            return (parcel_no, seg)
+        except:
+            return (0,0)
 
     @staticmethod
-    def get_assessment_info(parcel_no):
+    def get_square_feet(parcel_no, seg_no):
         """
         Finds the assessment information for the given property
         :param parcel_no: The parcel number of the property
         :return: The property's assessment information
         """
         city_url = 'http://www.fargoparcels.com/index.asp'
-        payload = {'dispaddr':parcel_no, 'seg':'1'}
+        payload = {'dispaddr':parcel_no, 'seg':seg_no}
         response = requests.get(city_url, params=payload)
+        page_text = response.content.decode('utf-8')
 
-        return response.content.decode('utf-8')
+        try:
+            sq_ft = re.findall(r'\d{3,4}(?=\sSq. Ft.)', page_text)
+            if sq_ft is not None:
+                return sq_ft[-1]
+            else:
+                return 0
+        except:
+            return 0
 
 
 class CassCounty:
@@ -155,6 +169,13 @@ class Home:
     @parcel_no.setter
     def parcel_no(self, value):
         self._parcel_no = value
+
+    @property
+    def seg_no(self):
+        return self._seg_no
+    @seg_no.setter
+    def seg_no(self, value):
+        self._seg_no = value
 
     @property
     def price(self):
